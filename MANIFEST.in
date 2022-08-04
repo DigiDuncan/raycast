@@ -1,0 +1,3 @@
+graft raycast/data
+graft docs
+recursive-include tests *.py
