@@ -84,6 +84,7 @@ class Level:
         self.x = x
         self.y = y
         self.scale = scale
+        self.debug = True
 
     @property
     def width(self) -> int:
@@ -111,7 +112,7 @@ class Level:
         level.map = ll
         return level
 
-    def draw(self, x = 0, y = 0, debug = False):
+    def draw(self, x = 0, y = 0):
         for r, line in enumerate(self.map):
             for n, t in enumerate(line):
                 if t.id != 0:
@@ -138,6 +139,7 @@ class Player:
         self.da: float = 0
 
         self.radius = 0.2
+        self.debug = True
 
     @property
     def hit_radius(self) -> float:
@@ -165,7 +167,7 @@ class Player:
         self.dy = 0
         self.da = 0
 
-    def draw_rays(self, view_distance = 8):
+    def draw_rays(self, view_distance = 30):
         ray_angle = self.radians
         ray_x = 0
         ray_y = 0
@@ -199,13 +201,15 @@ class Player:
                 dof -= 1
 
         arcade.draw_line(self.pos.x * self.level.scale, self.pos.y * self.level.scale, ray_x * self.level.scale, ray_y * self.level.scale, arcade.color.YELLOW)
+        if self.debug:
+            arcade.draw_line(0, ray_y * self.level.scale, self.level.width * self.level.scale, ray_y * self.level.scale, arcade.color.MAGENTA)
             
     
-    def draw(self, x: float = 0, y: float = 0, debug = False):
+    def draw(self, x: float = 0, y: float = 0):
         scaled_pos = Point(self.pos.x * self.level.scale + x, self.pos.y * self.level.scale + y)
         arcade.draw_circle_filled(scaled_pos.x, scaled_pos.y, 0.2 * self.level.scale, arcade.color.BLUE)
         self.draw_rays()
-        if debug:
+        if self.debug:
             # Direction vector
             scaled_heading = Point(self.heading_x, self.heading_y) * self.level.scale
             line_end = scaled_pos + scaled_heading

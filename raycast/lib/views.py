@@ -10,10 +10,12 @@ class Game2DSection(Section):
         super().__init__(0, 0, 600, 600, name = "Game2D")
         self.level = level
         self.player = player
+        self.player.debug = True
+        self.level.debug = True
 
     def on_draw(self):
-        self.level.draw(self.left, self.bottom, self.view.debug)
-        self.player.draw(self.left, self.bottom, self.view.debug)
+        self.level.draw(self.left, self.bottom)
+        self.player.draw(self.left, self.bottom)
 
 class GameView(View):
     def __init__(self, level: Level):
