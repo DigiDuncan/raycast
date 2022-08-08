@@ -127,7 +127,7 @@ class Level:
 
 
 class Player:
-    def __init__(self, level: Level, pos: tuple[float, float], rot: float = 0.0):
+    def __init__(self, level: Level, pos: tuple[float, float], rot: float = 90.0):
         self.level = level
         self.pos = Point.from_tuple(pos)
         self.rot = rot
@@ -171,22 +171,21 @@ class Player:
         ray_y = 0
         for i in range(1):
             dof = view_distance
-            atan = math.atan(ray_angle)
+            atan = -1 / math.tan(ray_angle)
             # Horizontal line check
             if ray_angle > math.pi:  # looking up
-                ray_y = self.pos.y
+                ray_y = int(self.pos.y)
                 ray_x = (self.pos.y - ray_y) * atan + self.pos.x
                 y_offset = -1
                 x_offset = -y_offset * atan
             elif ray_angle < math.pi:  # looking down
-                ray_y = self.pos.y + 1
+                ray_y = int(self.pos.y) + 1
                 ray_x = (self.pos.y - ray_y) * atan + self.pos.x
                 y_offset = 1
                 x_offset = -y_offset * atan
             if ray_angle == 0 or ray_angle == math.pi:  # looking straight
-                ray_x = self.pos.x
-                ray_y = self.pos.y
-                dof = 0
+                ray_x = int(self.pos.x)
+                ray_y = int(self.pos.y)
 
             while dof > 0:
                 map_x = int(ray_x)
@@ -197,7 +196,7 @@ class Player:
                     else:
                         ray_x += x_offset
                         ray_y += y_offset
-                        dof -= 1
+                dof -= 1
 
         arcade.draw_line(self.pos.x * self.level.scale, self.pos.y * self.level.scale, ray_x * self.level.scale, ray_y * self.level.scale, arcade.color.YELLOW)
             
