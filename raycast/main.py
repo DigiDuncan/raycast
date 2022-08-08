@@ -10,7 +10,7 @@ from raycast.lib.views import GameView
 
 class RaycastDemo(Window):
     def __init__(self):
-        super().__init__(1200, 600, "Raycast Demo", update_rate=1/120, center_window=True)
+        super().__init__(1200, 600, "Raycast Demo", update_rate=1/120, center_window=True, enable_polling=True)
 
     def setup(self):
         with pkg_resources.path(raycast.data, "level.lvl") as p:
@@ -19,13 +19,10 @@ class RaycastDemo(Window):
         self.game_view = GameView(level)
         self.show_view(self.game_view)
 
-    def on_update(self, delta_time: float):
-        return super().on_update(delta_time)
-
 def main():
     window = RaycastDemo()
     window.setup()
-    window.run()
+    arcade.run()
 
 
 if __name__ == "__main__":

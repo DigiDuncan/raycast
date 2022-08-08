@@ -1,6 +1,7 @@
-from copy import copy
 import math
 from pathlib import Path
+
+import numpy as np
 
 import arcade
 
@@ -9,12 +10,30 @@ class Point:
         self.x = x
         self.y = y
 
+    @property
+    def vector(self) -> np.ndarray[float, float]:
+        return np.array([self.x, self.y])
+
     @classmethod
     def from_tuple(self, t: tuple[float, float]):
         return Point(t[0], t[1])
 
-    def distance_to(self, point: "Point") -> float:
-        return math.dist((self.x, self.y), (point.x, point.y))
+    def distance_to(self, p: "Point") -> float:
+        return np.linalg.norm(self - p.vector)
+
+    def __add__(self, p: "Point") -> "Point":
+        return Point(self.x + p.x, self.y + p.y)
+
+    def __iadd__(self, p: "Point"):
+        self.x += p.x
+        self.y += p.y
+
+    def __mul__(self, s: float) -> "Point":
+        return Point(self.x * s, self.y * s)
+
+    def __imul__(self, s: float):
+        self.x *= s
+        self.y *= s
 
 
 class Tile:
@@ -26,11 +45,11 @@ class Tile:
 
     @property
     def x(self) -> float:
-        return self.ix * self.level.scale
+        return self.ix
 
     @property
     def y(self) -> float:
-        return self.iy * self.level.scale
+        return self.iy
 
     @property
     def type(self) -> str:
@@ -48,12 +67,12 @@ class Tile:
             case "air":
                 return None
             case "wall":
-                return arcade.color_from_hex_string("00DDDD")
+                return arcade.color_from_hex_string("#00DDDD")
             case "missingno":
-                return arcade.color_from_hex_string("FF00FF")
+                return arcade.color_from_hex_string("#FF00FF")
 
     def point_collides(self, point: Point) -> bool:
-        return self.x <= point.x <= self.x + self.level.scale and self.y <= point.y <= self.y + self.level.scale
+        return (self.x <= point.x <= self.x + 1) and (self.y <= point.y <= self.y + 1)
 
     def __str__(self) -> str:
         return f"[{self.id}]"
@@ -68,15 +87,15 @@ class Level:
 
     @property
     def width(self) -> int:
-        return len(map[0])
+        return len(self.map[0])
 
     @property
     def height(self) -> int:
-        return len(map)
+        return len(self.map)
 
     @property
     def all_tiles(self) -> list[Tile]:
-        return [tile for line in self.map for tile in line]
+        return set(tile for line in self.map for tile in line)
 
     @classmethod
     def from_lvl(cls, path: Path):
@@ -92,16 +111,13 @@ class Level:
         level.map = ll
         return level
 
-    def get_scaled_position(self, point: Point):
-        return Point(point.x * self.scale, point.y * self.scale)
-
-    def check_all_tiles_for_collision(self, point: Point) -> Tile | None:
-        """WARNING: Super inefficent what the frick"""
-        for tile in self.all_tiles:
-            if tile.point_collides(point) and tile.id != 0:
-                return tile
-        return None
-
+    def draw(self, x = 0, y = 0, debug = False):
+        for r, line in enumerate(self.map):
+            for n, t in enumerate(line):
+                if t.id != 0:
+                    arcade.draw_lrtb_rectangle_filled(n * self.scale + 1 + x, (n + 1) * self.scale - 1 + x,
+                        (r + 1) * self.scale - 1 + y, r * self.scale + 1 + y,
+                        t.color)
 
     def __str__(self) -> str:
         map = reversed(self.map)
@@ -115,46 +131,86 @@ class Player:
         self.level = level
         self.pos = Point.from_tuple(pos)
         self.rot = rot
+        self.speed = 3
+
+        self.dx: float = 0
+        self.dy: float = 0
+        self.da: float = 0
+
+        self.radius = 0.2
+
+    @property
+    def hit_radius(self) -> float:
+        return self.radius * 1.5
 
     @property
     def radians(self) -> float:
-        return math.radians(self.rot)
+        r = math.radians(self.rot) % math.tau
+        return r if r >= 0 else r + math.tau
 
-    def cast_ray(self, angle: float = 0.0, view_distance: int = 600) -> tuple[Tile, float] | None:
-        """Returns (Tile, distance)"""
-        r = (math.radians(angle) + self.rot) % math.tau - math.pi
-        heading_x = math.cos(r)
-        heading_y = math.sin(r)
+    @property
+    def heading_x(self) -> float:
+        return math.cos(self.radians)
 
-        current_point = copy(self.pos)
-        current_x = None
-        current_x_dist = None
-        current_y = None
-        current_y_dist = None
-        for i in range(view_distance):
-            # Horizontal check
-            cphx = current_point
-            cphx.x += heading_x
-            if t := self.level.check_all_tiles_for_collision(cphx):
-                current_x = t
-                current_x_dist = self.pos.distance_to(cphx)
-            # Vertical check
-            cphy = current_point
-            cphy.y += heading_y
-            if t := self.level.check_all_tiles_for_collision(cphy):
-                current_y = t
-                current_y_dist = self.pos.distance_to(cphy)
-            # Return tile if we found it
-            if current_x and current_y:
-                if current_x_dist < current_y_dist:
-                    return (current_x, current_x_dist)
-                else:
-                    return (current_y, current_y_dist)
-            elif current_x:
-                return (current_x, current_x_dist)
-            elif current_y:
-                return (current_y, current_y_dist)
-            else:
-                current_point.x += heading_x
-                current_point.y += heading_y
-        return None
+    @property
+    def heading_y(self) -> float:
+        return math.sin(self.radians)
+
+    def update(self, delta_time: float = 1/60):
+        self.pos.x += (self.dx * self.speed * delta_time)
+        self.pos.y += (self.dy * self.speed * delta_time)
+        self.rot += (self.da * self.speed * delta_time)
+
+        self.dx = 0
+        self.dy = 0
+        self.da = 0
+
+    def draw_rays(self, view_distance = 8):
+        ray_angle = self.radians
+        ray_x = 0
+        ray_y = 0
+        for i in range(1):
+            dof = view_distance
+            atan = math.atan(ray_angle)
+            # Horizontal line check
+            if ray_angle > math.pi:  # looking up
+                ray_y = self.pos.y
+                ray_x = (self.pos.y - ray_y) * atan + self.pos.x
+                y_offset = -1
+                x_offset = -y_offset * atan
+            elif ray_angle < math.pi:  # looking down
+                ray_y = self.pos.y + 1
+                ray_x = (self.pos.y - ray_y) * atan + self.pos.x
+                y_offset = 1
+                x_offset = -y_offset * atan
+            if ray_angle == 0 or ray_angle == math.pi:  # looking straight
+                ray_x = self.pos.x
+                ray_y = self.pos.y
+                dof = 0
+
+            while dof > 0:
+                map_x = int(ray_x)
+                map_y = int(ray_y)
+                if map_x >= 0 and map_x < self.level.width and map_y >= 0 and map_y < self.level.height:
+                    if self.level.map[map_y][map_x].id != 0:
+                        dof = 0
+                    else:
+                        ray_x += x_offset
+                        ray_y += y_offset
+                        dof -= 1
+
+        arcade.draw_line(self.pos.x * self.level.scale, self.pos.y * self.level.scale, ray_x * self.level.scale, ray_y * self.level.scale, arcade.color.YELLOW)
+            
+    
+    def draw(self, x: float = 0, y: float = 0, debug = False):
+        scaled_pos = Point(self.pos.x * self.level.scale + x, self.pos.y * self.level.scale + y)
+        arcade.draw_circle_filled(scaled_pos.x, scaled_pos.y, 0.2 * self.level.scale, arcade.color.BLUE)
+        self.draw_rays()
+        if debug:
+            # Direction vector
+            scaled_heading = Point(self.heading_x, self.heading_y) * self.level.scale
+            line_end = scaled_pos + scaled_heading
+            arcade.draw_line(scaled_pos.x, scaled_pos.y, line_end.x, line_end.y, arcade.color.GREEN, 0.1 * self.level.scale)
+
+            # Hitbox
+            arcade.draw_circle_outline(scaled_pos.x, scaled_pos.y, self.hit_radius * self.level.scale, arcade.color.RED, 1)
