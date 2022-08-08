@@ -5,6 +5,8 @@ import numpy as np
 
 import arcade
 
+INFINITY = float('inf')
+
 class Point:
     def __init__(self, x: float, y: float):
         self.x = x
@@ -173,7 +175,7 @@ class Player:
         ray_y = 0
         for i in range(1):
             dof = view_distance
-            atan = -1 / math.tan(ray_angle)
+            atan = -1 / math.tan(ray_angle) or INFINITY
             # Horizontal line check
             if ray_angle > math.pi:  # looking up
                 ray_y = int(self.pos.y)
