@@ -267,7 +267,7 @@ class Player:
         for t in self.level.all_tiles:
             t.dark = False
         half_fov = fov / 2
-        for i in np.linspace(-half_fov, half_fov, rays):
+        for i in np.linspace(-half_fov, half_fov, rays) if rays > 1 else [0]:
             p, t = self.get_ray(i, self.view_distance)
             p = p * self.level.scale
             arcade.draw_line(self.pos.x * self.level.scale, self.pos.y * self.level.scale, p.x, p.y, arcade.color.WHITE)
@@ -277,7 +277,7 @@ class Player:
     def draw(self, x: float = 0, y: float = 0):
         scaled_pos = Point(self.pos.x * self.level.scale + x, self.pos.y * self.level.scale + y)
         arcade.draw_circle_filled(scaled_pos.x, scaled_pos.y, 0.2 * self.level.scale, arcade.color.BLUE)
-        self.draw_rays(90)
+        self.draw_rays(1)
         if self.debug:
             # Direction vector
             scaled_heading = Point(self.heading_x, self.heading_y) * self.level.scale

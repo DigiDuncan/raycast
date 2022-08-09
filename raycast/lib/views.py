@@ -2,7 +2,6 @@ import arcade
 from arcade import View, Section
 
 from raycast.lib.lib import Level, Player
-from raycast.lib.utils import translate_point
 
 
 class Game2DSection(Section):
@@ -32,6 +31,7 @@ class GameView(View):
     def on_update(self, delta_time: float):
         # keyboard handling:
         speed_mod = 1.5 if self.window.keyboard[arcade.key.LSHIFT] else 1
+        rot_mod = 0.25 if self.window.keyboard[arcade.key.LCTRL] else 1
         if self.window.keyboard[arcade.key.W]:
             self.player.dx += self.player.heading_x * speed_mod
             self.player.dy += self.player.heading_y * speed_mod
@@ -39,9 +39,9 @@ class GameView(View):
             self.player.dx -= self.player.heading_x * speed_mod
             self.player.dy -= self.player.heading_y * speed_mod
         if self.window.keyboard[arcade.key.A]:
-            self.player.da += 120
+            self.player.da += 120 * rot_mod
         if self.window.keyboard[arcade.key.D]:
-            self.player.da -= 120
+            self.player.da -= 120 * rot_mod
 
         self.player.update(delta_time)
 
