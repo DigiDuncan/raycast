@@ -206,9 +206,7 @@ class Player:
                         ray_y += y_offset
                 dof -= 1
 
-            arcade.draw_line(self.pos.x * self.level.scale, self.pos.y * self.level.scale, ray_x * self.level.scale, ray_y * self.level.scale, arcade.color.YELLOW)
-            if self.debug:
-                arcade.draw_line(0, ray_y * self.level.scale, self.level.width * self.level.scale, ray_y * self.level.scale, arcade.color.MAGENTA)
+            arcade.draw_line(self.pos.x * self.level.scale, self.pos.y * self.level.scale, ray_x * self.level.scale, ray_y * self.level.scale, arcade.color.BLUE, 3)
 
             # Vertical line check
             dof = view_distance
@@ -238,8 +236,6 @@ class Player:
                 dof -= 1
 
             arcade.draw_line(self.pos.x * self.level.scale, self.pos.y * self.level.scale, ray_x * self.level.scale, ray_y * self.level.scale, arcade.color.PURPLE)
-            if self.debug:
-                arcade.draw_line(ray_x * self.level.scale, 0, ray_x * self.level.scale, self.level.height * self.level.scale, arcade.color.MAGENTA)
 
     def draw(self, x: float = 0, y: float = 0):
         scaled_pos = Point(self.pos.x * self.level.scale + x, self.pos.y * self.level.scale + y)
