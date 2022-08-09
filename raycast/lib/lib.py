@@ -5,7 +5,7 @@ import numpy as np
 
 import arcade
 
-from raycast.lib.utils import light_color
+from raycast.lib.utils import adjust_light, light_color
 
 INFINITY = float('inf')
 PI_HALVES = math.pi / 2
@@ -101,6 +101,7 @@ class Level:
         self.y = y
         self.scale = scale
         self.debug = True
+        self.smooth = False
         self.player: Player = None
 
     @property
@@ -132,6 +133,21 @@ class Level:
                 ll.append(l)
         level.map = ll
         return level
+
+    def smooth_lighting(self, x, y, passes = 2, bleed = 1.2):
+        current_tile = self.map[y][x]
+        zero_zero = Point(0, 0)
+        rel_coords = []
+        for ry in range(-passes, passes + 1):
+            for rx in range(-passes, passes + 1):
+                rel_coords.append((ry, rx))
+        for ry, rx in rel_coords:
+            ay, ax = current_tile.iy + ry, current_tile.ix + rx
+            if 0 <= ay < self.height and 0 <= ax < self.width:
+                check_tile = self.map[ay][ax]
+                if check_tile.id != 0 and sum(check_tile.light) < sum(current_tile.light):
+                    dist = min(1, zero_zero.distance_to(Point(ry, rx)))
+                    check_tile.light = adjust_light(check_tile.light, bleed / dist, current_tile.light)
 
     def draw(self, x = 0, y = 0):
         for r, line in enumerate(self.map):
@@ -302,6 +318,8 @@ class Player:
                 arcade.draw_line(self.pos.x * self.level.scale, self.pos.y * self.level.scale, p.x, p.y, arcade.color.WHITE)
             if t:
                 t.light = (1, 1, 1)
+                if self.level.smooth:
+                    self.level.smooth_lighting(t.ix, t.iy)
 
     def draw(self, x: float = 0, y: float = 0):
         # Where is the player on the scaled map?
