@@ -9,23 +9,34 @@ class Game2DSection(Section):
         super().__init__(0, 0, 600, 600, name = "Game2D")
         self.level = level
         self.player = player
-        self.player.debug = False
-        self.level.debug = False
-        self.level.player = self.player
 
     def on_draw(self):
-        self.level.set_all_brightness((0.5, 0.5, 0.5))
         self.player.draw(self.left, self.bottom)
         self.level.draw(self.left, self.bottom)
+
+class Game3DSection(Section):
+    def __init__(self, level: Level, player: Player):
+        super().__init__(600, 0, 600, 600, name = "Game3D")
+        self.level = level
+        self.player = player
+
+    def on_draw(self):
+        self.player.draw_3D(self.left, self.bottom)
 
 class GameView(View):
     def __init__(self, level: Level):
         super().__init__()
         self.level = level
         self.player = Player(self.level, (18, 3))
+        self.player.debug = False
+        self.player.fov = 90
+        self.level.debug = False
+        self.level.player = self.player
         self.section_2D = Game2DSection(self.level, self.player)
-        self.section_2D.enabled = True
+        self.section_3D = Game3DSection(self.level, self.player)
+        self.section_3D.enabled = True
         self.section_manager.add_section(self.section_2D)
+        self.section_manager.add_section(self.section_3D)
         self.section_manager.disable_all_keyboard_events()
 
         self.debug = True
@@ -57,3 +68,4 @@ class GameView(View):
 
     def on_draw(self):
         self.clear()
+        self.level.set_all_brightness((0.5, 0.5, 0.5))

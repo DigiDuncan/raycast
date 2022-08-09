@@ -80,7 +80,7 @@ class Tile:
             case "air":
                 return None
             case "wall":
-                c = arcade.color_from_hex_string("#00DDDD")
+                c = arcade.color_from_hex_string("#DD0000")
             case "missingno":
                 c = arcade.color_from_hex_string("#FF00FF")
         if c:
@@ -174,6 +174,11 @@ class Player:
         self.dx: float = 0
         self.dy: float = 0
         self.da: float = 0
+
+        self.texture = arcade.Texture.create_empty("threed", size=(600, 600))
+        self.sprite = arcade.Sprite(center_x=900, center_y=300, texture=self.texture)
+        self.spritelist = arcade.SpriteList()
+        self.spritelist.append(self.sprite)
 
         self.radius = 0.2
         self.view_distance = 30
@@ -307,10 +312,16 @@ class Player:
         else:
             return h, h_tile
 
-    def draw_rays(self, rays = 1, fov = 90):
+    def get_rays(self, rays = 1, fov = 90) -> list[tuple[Point, Tile]]:
+        pt_pairs = []
         half_fov = fov / 2
         for i, a in enumerate(np.linspace(-half_fov, half_fov, rays)) if rays > 1 else [(0, 0)]:
             p, t = self.cast_ray(a, self.view_distance)
+            pt_pairs.append((p, t))
+        return pt_pairs
+
+    def draw_rays(self, rays = 1, fov = 90):
+        for i, (p, t) in enumerate(self.get_rays(rays, fov)):
             p = p * self.level.scale
             if self.debug:
                 arcade.draw_line(self.pos.x * self.level.scale, self.pos.y * self.level.scale, p.x, p.y, arcade.color.LIME_GREEN)
@@ -338,3 +349,18 @@ class Player:
 
             # Hitbox
             arcade.draw_circle_outline(scaled_pos.x, scaled_pos.y, self.hit_radius * self.level.scale, arcade.color.RED, 1)
+
+    def draw_3D(self, x: float = 0, y: float = 0):
+        self.sprite.left = x
+        self.sprite.bottom = y
+        rays = self.get_rays(300, self.fov)
+        with self.spritelist.atlas.render_into(self.texture) as framebuffer:
+            framebuffer.clear()
+            # Horizon
+            arcade.draw_lrtb_rectangle_filled(0, 600, 600, 0, arcade.color.SKY_BLUE)
+            arcade.draw_lrtb_rectangle_filled(0, 600, 300, 0, arcade.color.MOSS_GREEN)
+            for i, (p, t) in enumerate(rays):
+                d = self.pos.distance_to(p)
+                height = arcade.get_window().height / d
+                arcade.draw_rectangle_filled(i * 2, arcade.get_window().height / 2, 2, height, t.color, 0)
+        self.spritelist.draw()
