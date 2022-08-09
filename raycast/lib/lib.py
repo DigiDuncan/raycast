@@ -5,6 +5,8 @@ import numpy as np
 
 import arcade
 
+from raycast.lib.utils import light_color
+
 INFINITY = float('inf')
 PI_HALVES = math.pi / 2
 THREEPI_ON_TWO = 3 * math.pi / 2
@@ -21,6 +23,11 @@ class Point:
     @classmethod
     def from_tuple(self, t: tuple[float, float]):
         return Point(t[0], t[1])
+
+    def translated(self, angle: float, distance: float) -> "Point":
+        x = self.x + (distance * math.cos(angle))
+        y = self.y + (distance * math.sin(angle))
+        return Point(x, y)
 
     def distance_to(self, p: "Point") -> float:
         return np.linalg.norm(self.vector - p.vector)
@@ -46,7 +53,7 @@ class Tile:
         self.ix = x
         self.iy = y
         self.level = level
-        self.dark = False
+        self.light: tuple[float, float, float] = (1, 1, 1)
 
     @property
     def x(self) -> float:
@@ -76,8 +83,8 @@ class Tile:
                 c = arcade.color_from_hex_string("#00DDDD")
             case "missingno":
                 c = arcade.color_from_hex_string("#FF00FF")
-        if self.dark:
-            c = tuple(i * 0.5 for i in c)
+        if c:
+            c = light_color(c, self.light)
         return c
 
     def point_collides(self, point: Point) -> bool:
@@ -94,6 +101,7 @@ class Level:
         self.y = y
         self.scale = scale
         self.debug = True
+        self.player: Player = None
 
     @property
     def width(self) -> int:
@@ -106,6 +114,10 @@ class Level:
     @property
     def all_tiles(self) -> list[Tile]:
         return set(tile for line in self.map for tile in line)
+
+    def set_all_brightness(self, light: tuple[float, float, float]):
+        for t in self.all_tiles:
+            t.light = light
 
     @classmethod
     def from_lvl(cls, path: Path):
@@ -149,7 +161,8 @@ class Player:
 
         self.radius = 0.2
         self.view_distance = 30
-        self.debug = True
+        self.fov = 90.0
+        self.debug = False
 
     @property
     def hit_radius(self) -> float:
@@ -177,7 +190,17 @@ class Player:
         self.dy = 0
         self.da = 0
 
-    def get_ray(self, angle = 0, view_distance = 30) -> tuple[Point, Tile | None]:
+    def cast_ray(self, angle = 0, view_distance = 30) -> tuple[Point, Tile | None]:
+        """Cast a ray forward at `angle` degrees offset from the player's rotation.
+        Returns a tuple where the first element is a Point where the ray stopped,
+        and the second element is the Tile is collided with, or None.
+        Uses the DDA algorithm I barely understand.
+
+        * `angle: float = 0.0`: the angle offset in degrees from the player to cast the
+        ray from
+        * `view_distance: int = 30`: how far to cast the ray before we give up on it
+        hitting anything
+        """
         ray_angle = (self.radians + math.radians(angle)) % math.tau
         ray_angle = ray_angle if ray_angle >= 0 else ray_angle + math.tau
         ray_x = 0
@@ -207,6 +230,8 @@ class Player:
         while dof > 0:
             map_x = int(ray_x)
             map_y = int(ray_y)
+            if ray_angle > math.pi: #looking down
+                map_y = int(ray_y - 1)
             if map_x >= 0 and map_x < self.level.width and map_y >= 0 and map_y < self.level.height:
                 if self.level.map[map_y][map_x].id != 0:
                     dof = 0
@@ -220,7 +245,7 @@ class Player:
         hy = ray_y
         h = Point(hx, hy)
         if self.debug:
-            arcade.draw_line(self.pos.x * self.level.scale, self.pos.y * self.level.scale, ray_x * self.level.scale, ray_y * self.level.scale, arcade.color.BLUE, 3)
+            arcade.draw_line(self.pos.x * self.level.scale, self.pos.y * self.level.scale, ray_x * self.level.scale, ray_y * self.level.scale, arcade.color.BLUE)
 
         # Vertical line check
         dof = view_distance
@@ -241,6 +266,8 @@ class Player:
         while dof > 0:
             map_x = int(ray_x)
             map_y = int(ray_y)
+            if THREEPI_ON_TWO > ray_angle > PI_HALVES:
+                map_x = int(ray_x - 1)
             if map_x >= 0 and map_x < self.level.width and map_y >= 0 and map_y < self.level.height:
                 if self.level.map[map_y][map_x].id != 0:
                     dof = 0
@@ -265,20 +292,26 @@ class Player:
             return h, h_tile
 
     def draw_rays(self, rays = 1, fov = 90):
-        for t in self.level.all_tiles:
-            t.dark = False
         half_fov = fov / 2
-        for i in np.linspace(-half_fov, half_fov, rays) if rays > 1 else [0]:
-            p, t = self.get_ray(i, self.view_distance)
+        for i, a in enumerate(np.linspace(-half_fov, half_fov, rays)) if rays > 1 else [(0, 0)]:
+            p, t = self.cast_ray(a, self.view_distance)
             p = p * self.level.scale
-            arcade.draw_line(self.pos.x * self.level.scale, self.pos.y * self.level.scale, p.x, p.y, arcade.color.WHITE)
+            if self.debug:
+                arcade.draw_line(self.pos.x * self.level.scale, self.pos.y * self.level.scale, p.x, p.y, arcade.color.LIME_GREEN)
+            elif i == 0 or i == rays - 1:
+                arcade.draw_line(self.pos.x * self.level.scale, self.pos.y * self.level.scale, p.x, p.y, arcade.color.WHITE)
             if t:
-                t.dark = True
+                t.light = (1, 1, 1)
 
     def draw(self, x: float = 0, y: float = 0):
+        # Where is the player on the scaled map?
         scaled_pos = Point(self.pos.x * self.level.scale + x, self.pos.y * self.level.scale + y)
         arcade.draw_circle_filled(scaled_pos.x, scaled_pos.y, 0.2 * self.level.scale, arcade.color.BLUE)
-        self.draw_rays(90, 90)
+
+        # Draw rays
+        self.draw_rays(300, self.fov)
+
+        # Debug info
         if self.debug:
             # Direction vector
             scaled_heading = Point(self.heading_x, self.heading_y) * self.level.scale

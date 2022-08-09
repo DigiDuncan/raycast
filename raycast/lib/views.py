@@ -11,10 +11,12 @@ class Game2DSection(Section):
         self.player = player
         self.player.debug = False
         self.level.debug = False
+        self.level.player = self.player
 
     def on_draw(self):
-        self.level.draw(self.left, self.bottom)
+        self.level.set_all_brightness((0.5, 0.5, 0.5))
         self.player.draw(self.left, self.bottom)
+        self.level.draw(self.left, self.bottom)
 
 class GameView(View):
     def __init__(self, level: Level):
