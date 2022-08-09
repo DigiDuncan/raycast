@@ -6,6 +6,8 @@ import numpy as np
 import arcade
 
 INFINITY = float('inf')
+PI_HALVES = math.pi / 2
+THREEPI_ON_TWO = 3 * math.pi / 2
 
 class Point:
     def __init__(self, x: float, y: float):
@@ -141,6 +143,7 @@ class Player:
         self.da: float = 0
 
         self.radius = 0.2
+        self.view_distance = 5
         self.debug = True
 
     @property
@@ -174,9 +177,10 @@ class Player:
         ray_x = 0
         ray_y = 0
         for i in range(1):
-            dof = view_distance
             atan = -1 / math.tan(ray_angle) or INFINITY
+            ntan = -math.tan(ray_angle)
             # Horizontal line check
+            dof = view_distance
             if ray_angle > math.pi:  # looking up
                 ray_y = int(self.pos.y)
                 ray_x = (self.pos.y - ray_y) * atan + self.pos.x
@@ -202,15 +206,45 @@ class Player:
                         ray_y += y_offset
                 dof -= 1
 
-        arcade.draw_line(self.pos.x * self.level.scale, self.pos.y * self.level.scale, ray_x * self.level.scale, ray_y * self.level.scale, arcade.color.YELLOW)
-        if self.debug:
-            arcade.draw_line(0, ray_y * self.level.scale, self.level.width * self.level.scale, ray_y * self.level.scale, arcade.color.MAGENTA)
-            
-    
+            arcade.draw_line(self.pos.x * self.level.scale, self.pos.y * self.level.scale, ray_x * self.level.scale, ray_y * self.level.scale, arcade.color.YELLOW)
+            if self.debug:
+                arcade.draw_line(0, ray_y * self.level.scale, self.level.width * self.level.scale, ray_y * self.level.scale, arcade.color.MAGENTA)
+
+            # Vertical line check
+            dof = view_distance
+            if THREEPI_ON_TWO > ray_angle > PI_HALVES:  # looking left
+                ray_x = int(self.pos.x)
+                ray_y = (self.pos.x - ray_x) * ntan + self.pos.y
+                x_offset = -1
+                y_offset = -x_offset * ntan
+            else:  # looking right
+                ray_x = int(self.pos.x) + 1
+                ray_y = (self.pos.x - ray_x) * ntan + self.pos.y
+                x_offset = 1
+                y_offset = -x_offset * ntan
+            if ray_angle == 0 or ray_angle == math.pi:  # looking straight
+                ray_x = int(self.pos.x)
+                ray_y = int(self.pos.y)
+
+            while dof > 0:
+                map_x = int(ray_x)
+                map_y = int(ray_y)
+                if map_x >= 0 and map_x < self.level.width and map_y >= 0 and map_y < self.level.height:
+                    if self.level.map[map_y][map_x].id != 0:
+                        dof = 0
+                    else:
+                        ray_x += x_offset
+                        ray_y += y_offset
+                dof -= 1
+
+            arcade.draw_line(self.pos.x * self.level.scale, self.pos.y * self.level.scale, ray_x * self.level.scale, ray_y * self.level.scale, arcade.color.PURPLE)
+            if self.debug:
+                arcade.draw_line(ray_x * self.level.scale, 0, ray_x * self.level.scale, self.level.height * self.level.scale, arcade.color.MAGENTA)
+
     def draw(self, x: float = 0, y: float = 0):
         scaled_pos = Point(self.pos.x * self.level.scale + x, self.pos.y * self.level.scale + y)
         arcade.draw_circle_filled(scaled_pos.x, scaled_pos.y, 0.2 * self.level.scale, arcade.color.BLUE)
-        self.draw_rays()
+        self.draw_rays(self.view_distance)
         if self.debug:
             # Direction vector
             scaled_heading = Point(self.heading_x, self.heading_y) * self.level.scale
