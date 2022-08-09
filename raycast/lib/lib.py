@@ -195,7 +195,7 @@ class Player:
             ray_x = (self.pos.y - ray_y) * atan + self.pos.x
             y_offset = -1
             x_offset = -y_offset * atan
-        elif ray_angle < math.pi:  # looking down
+        else:  # looking down
             ray_y = int(self.pos.y) + 1
             ray_x = (self.pos.y - ray_y) * atan + self.pos.x
             y_offset = 1
