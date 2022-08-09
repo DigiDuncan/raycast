@@ -10,8 +10,8 @@ class Game2DSection(Section):
         super().__init__(0, 0, 600, 600, name = "Game2D")
         self.level = level
         self.player = player
-        self.player.debug = True
-        self.level.debug = True
+        self.player.debug = False
+        self.level.debug = False
 
     def on_draw(self):
         self.level.draw(self.left, self.bottom)
@@ -31,12 +31,13 @@ class GameView(View):
 
     def on_update(self, delta_time: float):
         # keyboard handling:
+        speed_mod = 1.5 if self.window.keyboard[arcade.key.LSHIFT] else 1
         if self.window.keyboard[arcade.key.W]:
-            self.player.dx += self.player.heading_x
-            self.player.dy += self.player.heading_y
+            self.player.dx += self.player.heading_x * speed_mod
+            self.player.dy += self.player.heading_y * speed_mod
         if self.window.keyboard[arcade.key.S]:
-            self.player.dx -= self.player.heading_x
-            self.player.dy -= self.player.heading_y
+            self.player.dx -= self.player.heading_x * speed_mod
+            self.player.dy -= self.player.heading_y * speed_mod
         if self.window.keyboard[arcade.key.A]:
             self.player.da += 120
         if self.window.keyboard[arcade.key.D]:
