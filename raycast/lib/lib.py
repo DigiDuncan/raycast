@@ -178,7 +178,8 @@ class Player:
         self.da = 0
 
     def get_ray(self, angle = 0, view_distance = 30) -> tuple[Point, Tile | None]:
-        ray_angle = self.radians + math.radians(angle)
+        ray_angle = (self.radians + math.radians(angle)) % math.tau
+        ray_angle = ray_angle if ray_angle >= 0 else ray_angle + math.tau
         ray_x = 0
         ray_y = 0
         atan = -1 / math.tan(ray_angle) or INFINITY
@@ -277,7 +278,7 @@ class Player:
     def draw(self, x: float = 0, y: float = 0):
         scaled_pos = Point(self.pos.x * self.level.scale + x, self.pos.y * self.level.scale + y)
         arcade.draw_circle_filled(scaled_pos.x, scaled_pos.y, 0.2 * self.level.scale, arcade.color.BLUE)
-        self.draw_rays(1)
+        self.draw_rays(90, 90)
         if self.debug:
             # Direction vector
             scaled_heading = Point(self.heading_x, self.heading_y) * self.level.scale
