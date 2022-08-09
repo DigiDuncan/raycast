@@ -44,5 +44,11 @@ class GameView(View):
 
         self.player.update(delta_time)
 
+    def on_key_press(self, symbol: int, modifiers: int):
+        match symbol:
+            case arcade.key.PERIOD:
+                self.player.debug = not self.player.debug
+                self.level.debug = not self.level.debug
+
     def on_draw(self):
         self.clear()
