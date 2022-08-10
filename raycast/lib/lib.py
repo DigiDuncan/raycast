@@ -1,11 +1,12 @@
 import math
 from pathlib import Path
+from typing import NamedTuple
 
 import numpy as np
 
 import arcade
 
-from raycast.lib.utils import adjust_light, light_color
+from raycast.lib.utils import degrees_to_radians, light_color
 
 INFINITY = float('inf')
 PI_HALVES = math.pi / 2
@@ -148,6 +149,13 @@ class Level:
         map = "\n".join(lines)
         return map
 
+class RayInfo(NamedTuple):
+    angle: float
+    point: Point
+    distance: float
+    tile: Tile | None
+    side: int
+
 
 class Player:
     def __init__(self, level: Level, pos: tuple[float, float], rot: float = 90.0):
@@ -168,6 +176,7 @@ class Player:
         self.radius = 0.2
         self.view_distance = 30
         self.fov = 90.0
+        self.look = 0
         self.debug = False
 
     @property
@@ -176,8 +185,7 @@ class Player:
 
     @property
     def radians(self) -> float:
-        r = math.radians(self.rot) % math.tau
-        return r if r >= 0 else r + math.tau
+        return degrees_to_radians(self.rot)
 
     @property
     def heading_x(self) -> float:
@@ -196,7 +204,7 @@ class Player:
         self.dy = 0
         self.da = 0
 
-    def cast_ray(self, angle = 0, view_distance = 30) -> tuple[Point, Tile | None, int]:
+    def cast_ray(self, angle = 0, view_distance = 30) -> RayInfo:
         """Cast a ray forward at `angle` degrees offset from the player's rotation.
         Returns a tuple where the first element is a Point where the ray stopped,
         and the second element is the Tile is collided with, or None.
@@ -207,8 +215,7 @@ class Player:
         * `view_distance: int = 30`: how far to cast the ray before we give up on it
         hitting anything
         """
-        ray_angle = (self.radians + math.radians(angle)) % math.tau
-        ray_angle = ray_angle if ray_angle >= 0 else ray_angle + math.tau
+        ray_angle = degrees_to_radians(self.rot + angle)
         ray_x = 0
         ray_y = 0
         atan = -1 / math.tan(ray_angle) or INFINITY
@@ -293,27 +300,28 @@ class Player:
         vd = self.pos.distance_to(v)
 
         if hd > vd:
-            return v, v_tile, 0
+            return RayInfo(angle, v, vd, v_tile, 0)
         else:
-            return h, h_tile, 1
+            return RayInfo(angle, h, hd, h_tile, 1)
 
-    def get_rays(self, rays = 1, fov = 90) -> list[tuple[Point, Tile]]:
-        pt_pairs = []
+    def get_rays(self, rays = 1, fov = 90) -> list[RayInfo]:
+        infos = []
         half_fov = fov / 2
-        for i, a in enumerate(np.linspace(-half_fov, half_fov, rays)) if rays > 1 else [(0, 0)]:
-            p, t, s = self.cast_ray(a, self.view_distance)
-            pt_pairs.append((p, t, s))
-        return pt_pairs
+        for a in np.linspace(-half_fov, half_fov, rays) if rays > 1 else [(0, 0)]:
+            info = self.cast_ray(a, self.view_distance)
+            infos.append(info)
+        return infos
 
     def draw_rays(self, rays = 1, fov = 90):
-        for i, (p, t, s) in enumerate(self.get_rays(rays, fov)):
-            p = p * self.level.scale
+        for i, info in enumerate(self.get_rays(rays, fov)):
+            p = info.point * self.level.scale
             if self.debug:
                 arcade.draw_line(self.pos.x * self.level.scale, self.pos.y * self.level.scale, p.x, p.y, arcade.color.LIME_GREEN)
             elif i == 0 or i == rays - 1:
+                # Only draw the outermost rays in non-debug views
                 arcade.draw_line(self.pos.x * self.level.scale, self.pos.y * self.level.scale, p.x, p.y, arcade.color.WHITE)
-            if t:
-                t.light = (1, 1, 1)
+            if info.tile:
+                info.tile.light = (1, 1, 1)
 
     def draw(self, x: float = 0, y: float = 0):
         # Where is the player on the scaled map?
@@ -341,10 +349,13 @@ class Player:
             framebuffer.clear()
             # Horizon
             arcade.draw_lrtb_rectangle_filled(0, 600, 600, 0, arcade.color.SKY_BLUE)
-            arcade.draw_lrtb_rectangle_filled(0, 600, 300, 0, arcade.color.MOSS_GREEN)
-            for i, (p, t, s) in enumerate(rays):
-                d = self.pos.distance_to(p)
+            arcade.draw_lrtb_rectangle_filled(0, 600, 300 - self.look, 0, arcade.color.MOSS_GREEN)
+            for i, info in enumerate(rays):
+                d = info.distance * math.cos(degrees_to_radians(info.angle))
                 height = arcade.get_window().height / d
-                color = t.color if s == 0 else light_color(t.color, (0.75, 0.75, 0.75))
-                arcade.draw_rectangle_filled(i * 2, arcade.get_window().height / 2, 2, height, color, 0)
+                color = info.tile.color if info.side == 0 else light_color(info.tile.color, (0.75, 0.75, 0.75))
+                center_screen = arcade.get_window().height / 2 - self.look
+                bottom = center_screen - (height / 2)
+                top = center_screen + (height / 2)
+                arcade.draw_lrtb_rectangle_filled(i * 2, i * 2 + 2, top, bottom, color)
         self.spritelist.draw()

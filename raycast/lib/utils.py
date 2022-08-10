@@ -12,9 +12,12 @@ class Vector(NamedTuple):
 def clamp(n, x, m):
     return max(n, min(x, m))
 
-def degrees_to_vector(degrees: float) -> Vector:
+def degrees_to_radians(degrees: float) -> float:
     r = math.radians(degrees) % math.tau
-    r = r if r >= 0 else r + math.tau
+    return r if r >= 0 else r + math.tau
+
+def degrees_to_vector(degrees: float) -> Vector:
+    r = degrees_to_radians(degrees)
     x = math.cos(r)
     y = math.sin(r)
     return Vector(r, x, y)

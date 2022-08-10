@@ -63,6 +63,10 @@ class GameView(View):
             case arcade.key.PERIOD:
                 self.player.debug = not self.player.debug
                 self.level.debug = not self.level.debug
+            case arcade.key.EQUAL:
+                self.player.look += 10
+            case arcade.key.MINUS:
+                self.player.look -= 10
 
     def on_draw(self):
         self.clear()
