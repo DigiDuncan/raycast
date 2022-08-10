@@ -134,21 +134,6 @@ class Level:
         level.map = ll
         return level
 
-    def smooth_lighting(self, x, y, passes = 2, bleed = 1.2):
-        current_tile = self.map[y][x]
-        zero_zero = Point(0, 0)
-        rel_coords = []
-        for ry in range(-passes, passes + 1):
-            for rx in range(-passes, passes + 1):
-                rel_coords.append((ry, rx))
-        for ry, rx in rel_coords:
-            ay, ax = current_tile.iy + ry, current_tile.ix + rx
-            if 0 <= ay < self.height and 0 <= ax < self.width:
-                check_tile = self.map[ay][ax]
-                if check_tile.id != 0 and sum(check_tile.light) < sum(current_tile.light):
-                    dist = min(1, zero_zero.distance_to(Point(ry, rx)))
-                    check_tile.light = adjust_light(check_tile.light, bleed / dist, current_tile.light)
-
     def draw(self, x = 0, y = 0):
         for r, line in enumerate(self.map):
             for n, t in enumerate(line):
@@ -211,7 +196,7 @@ class Player:
         self.dy = 0
         self.da = 0
 
-    def cast_ray(self, angle = 0, view_distance = 30) -> tuple[Point, Tile | None]:
+    def cast_ray(self, angle = 0, view_distance = 30) -> tuple[Point, Tile | None, int]:
         """Cast a ray forward at `angle` degrees offset from the player's rotation.
         Returns a tuple where the first element is a Point where the ray stopped,
         and the second element is the Tile is collided with, or None.
@@ -308,20 +293,20 @@ class Player:
         vd = self.pos.distance_to(v)
 
         if hd > vd:
-            return v, v_tile
+            return v, v_tile, 0
         else:
-            return h, h_tile
+            return h, h_tile, 1
 
     def get_rays(self, rays = 1, fov = 90) -> list[tuple[Point, Tile]]:
         pt_pairs = []
         half_fov = fov / 2
         for i, a in enumerate(np.linspace(-half_fov, half_fov, rays)) if rays > 1 else [(0, 0)]:
-            p, t = self.cast_ray(a, self.view_distance)
-            pt_pairs.append((p, t))
+            p, t, s = self.cast_ray(a, self.view_distance)
+            pt_pairs.append((p, t, s))
         return pt_pairs
 
     def draw_rays(self, rays = 1, fov = 90):
-        for i, (p, t) in enumerate(self.get_rays(rays, fov)):
+        for i, (p, t, s) in enumerate(self.get_rays(rays, fov)):
             p = p * self.level.scale
             if self.debug:
                 arcade.draw_line(self.pos.x * self.level.scale, self.pos.y * self.level.scale, p.x, p.y, arcade.color.LIME_GREEN)
@@ -329,8 +314,6 @@ class Player:
                 arcade.draw_line(self.pos.x * self.level.scale, self.pos.y * self.level.scale, p.x, p.y, arcade.color.WHITE)
             if t:
                 t.light = (1, 1, 1)
-                if self.level.smooth:
-                    self.level.smooth_lighting(t.ix, t.iy)
 
     def draw(self, x: float = 0, y: float = 0):
         # Where is the player on the scaled map?
@@ -359,8 +342,9 @@ class Player:
             # Horizon
             arcade.draw_lrtb_rectangle_filled(0, 600, 600, 0, arcade.color.SKY_BLUE)
             arcade.draw_lrtb_rectangle_filled(0, 600, 300, 0, arcade.color.MOSS_GREEN)
-            for i, (p, t) in enumerate(rays):
+            for i, (p, t, s) in enumerate(rays):
                 d = self.pos.distance_to(p)
                 height = arcade.get_window().height / d
-                arcade.draw_rectangle_filled(i * 2, arcade.get_window().height / 2, 2, height, t.color, 0)
+                color = t.color if s == 0 else light_color(t.color, (0.75, 0.75, 0.75))
+                arcade.draw_rectangle_filled(i * 2, arcade.get_window().height / 2, 2, height, color, 0)
         self.spritelist.draw()

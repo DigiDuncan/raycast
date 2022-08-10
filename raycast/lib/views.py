@@ -63,8 +63,6 @@ class GameView(View):
             case arcade.key.PERIOD:
                 self.player.debug = not self.player.debug
                 self.level.debug = not self.level.debug
-            case arcade.key.L:
-                self.level.smooth = not self.level.smooth
 
     def on_draw(self):
         self.clear()
