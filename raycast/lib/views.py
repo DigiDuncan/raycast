@@ -11,7 +11,6 @@ class Game2DSection(Section):
         self.player = player
 
     def on_draw(self):
-        self.player.draw(self.left, self.bottom)
         self.level.draw(self.left, self.bottom)
 
 class Game3DSection(Section):
@@ -34,7 +33,6 @@ class GameView(View):
         self.level.player = self.player
         self.section_2D = Game2DSection(self.level, self.player)
         self.section_3D = Game3DSection(self.level, self.player)
-        self.section_3D.enabled = True
         self.section_manager.add_section(self.section_2D)
         self.section_manager.add_section(self.section_3D)
         self.section_manager.disable_all_keyboard_events()
@@ -55,6 +53,10 @@ class GameView(View):
             self.player.da += 120 * rot_mod
         if self.window.keyboard[arcade.key.D]:
             self.player.da -= 120 * rot_mod
+        if self.window.keyboard[arcade.key.EQUAL]:
+            self.player.look += 30 * rot_mod
+        if self.window.keyboard[arcade.key.MINUS]:
+            self.player.look -= 30 * rot_mod
 
         self.player.update(delta_time)
 
@@ -63,11 +65,6 @@ class GameView(View):
             case arcade.key.PERIOD:
                 self.player.debug = not self.player.debug
                 self.level.debug = not self.level.debug
-            case arcade.key.EQUAL:
-                self.player.look += 10
-            case arcade.key.MINUS:
-                self.player.look -= 10
 
     def on_draw(self):
         self.clear()
-        self.level.set_all_brightness((0.5, 0.5, 0.5))

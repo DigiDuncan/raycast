@@ -105,6 +105,11 @@ class Level:
         self.smooth = False
         self.player: Player = None
 
+        self.texture_2D = arcade.Texture.create_empty("twod", size=(600, 600))
+        self.sprite_2D = arcade.Sprite(center_x=300, center_y=300, texture=self.texture_2D)
+        self.spritelist_2D = arcade.SpriteList()
+        self.spritelist_2D.append(self.sprite_2D)
+
     @property
     def width(self) -> int:
         return len(self.map[0])
@@ -135,13 +140,20 @@ class Level:
         level.map = ll
         return level
 
+    def draw_2D(self, x = 0, y = 0):
+        with self.spritelist_2D.atlas.render_into(self.texture_2D) as framebuffer:
+            framebuffer.clear()
+            for r, line in enumerate(self.map):
+                for n, t in enumerate(line):
+                    if t.id != 0:
+                        arcade.draw_lrtb_rectangle_filled(n * self.scale + 1 + x, (n + 1) * self.scale - 1 + x,
+                            (r + 1) * self.scale - 1 + y, r * self.scale + 1 + y,
+                            t.color)
+
     def draw(self, x = 0, y = 0):
-        for r, line in enumerate(self.map):
-            for n, t in enumerate(line):
-                if t.id != 0:
-                    arcade.draw_lrtb_rectangle_filled(n * self.scale + 1 + x, (n + 1) * self.scale - 1 + x,
-                        (r + 1) * self.scale - 1 + y, r * self.scale + 1 + y,
-                        t.color)
+        self.draw_2D(x, y)
+        self.spritelist_2D.draw()
+        self.player.draw_2D()
 
     def __str__(self) -> str:
         map = reversed(self.map)
@@ -168,10 +180,10 @@ class Player:
         self.dy: float = 0
         self.da: float = 0
 
-        self.texture = arcade.Texture.create_empty("threed", size=(600, 600))
-        self.sprite = arcade.Sprite(center_x=900, center_y=300, texture=self.texture)
-        self.spritelist = arcade.SpriteList()
-        self.spritelist.append(self.sprite)
+        self.texture_3D = arcade.Texture.create_empty("threed", size=(600, 600))
+        self.sprite_3D = arcade.Sprite(center_x=900, center_y=300, texture=self.texture_3D)
+        self.spritelist_3D = arcade.SpriteList()
+        self.spritelist_3D.append(self.sprite_3D)
 
         self.radius = 0.2
         self.view_distance = 30
@@ -226,12 +238,12 @@ class Player:
 
         # Horizontal line check
         dof = view_distance
-        if ray_angle > math.pi:  # looking up
+        if ray_angle > math.pi:                     # looking up
             ray_y = int(self.pos.y)
             ray_x = (self.pos.y - ray_y) * atan + self.pos.x
             y_offset = -1
             x_offset = -y_offset * atan
-        else:  # looking down
+        else:                                       # looking down
             ray_y = int(self.pos.y) + 1
             ray_x = (self.pos.y - ray_y) * atan + self.pos.x
             y_offset = 1
@@ -243,7 +255,7 @@ class Player:
         while dof > 0:
             map_x = int(ray_x)
             map_y = int(ray_y)
-            if ray_angle > math.pi: #looking down
+            if ray_angle > math.pi:                 #looking down
                 map_y = int(ray_y - 1)
             if map_x >= 0 and map_x < self.level.width and map_y >= 0 and map_y < self.level.height:
                 if self.level.map[map_y][map_x].id != 0:
@@ -262,24 +274,24 @@ class Player:
 
         # Vertical line check
         dof = view_distance
-        if THREEPI_ON_TWO > ray_angle > PI_HALVES:  # looking left
+        if THREEPI_ON_TWO > ray_angle > PI_HALVES:      # looking left
             ray_x = int(self.pos.x)
             ray_y = (self.pos.x - ray_x) * ntan + self.pos.y
             x_offset = -1
             y_offset = -x_offset * ntan
-        else:  # looking right
+        else:                                           # looking right
             ray_x = int(self.pos.x) + 1
             ray_y = (self.pos.x - ray_x) * ntan + self.pos.y
             x_offset = 1
             y_offset = -x_offset * ntan
-        if ray_angle == 0 or ray_angle == math.pi:  # looking straight
+        if ray_angle == 0 or ray_angle == math.pi:      # looking straight
             ray_x = int(self.pos.x)
             ray_y = int(self.pos.y)
 
         while dof > 0:
             map_x = int(ray_x)
             map_y = int(ray_y)
-            if THREEPI_ON_TWO > ray_angle > PI_HALVES:
+            if THREEPI_ON_TWO > ray_angle > PI_HALVES:  # looking left
                 map_x = int(ray_x - 1)
             if map_x >= 0 and map_x < self.level.width and map_y >= 0 and map_y < self.level.height:
                 if self.level.map[map_y][map_x].id != 0:
@@ -300,8 +312,12 @@ class Player:
         vd = self.pos.distance_to(v)
 
         if hd > vd:
+            if v_tile:
+                v_tile.light = (1, 1, 1)
             return RayInfo(angle, v, vd, v_tile, 0)
         else:
+            if h_tile:
+                h_tile.light = (1, 1, 1)
             return RayInfo(angle, h, hd, h_tile, 1)
 
     def get_rays(self, rays = 1, fov = 90) -> list[RayInfo]:
@@ -320,36 +336,35 @@ class Player:
             elif i == 0 or i == rays - 1:
                 # Only draw the outermost rays in non-debug views
                 arcade.draw_line(self.pos.x * self.level.scale, self.pos.y * self.level.scale, p.x, p.y, arcade.color.WHITE)
-            if info.tile:
-                info.tile.light = (1, 1, 1)
 
-    def draw(self, x: float = 0, y: float = 0):
-        # Where is the player on the scaled map?
-        scaled_pos = Point(self.pos.x * self.level.scale + x, self.pos.y * self.level.scale + y)
-        arcade.draw_circle_filled(scaled_pos.x, scaled_pos.y, 0.2 * self.level.scale, arcade.color.BLUE)
+    def draw_2D(self, x: float = 0, y: float = 0):
+        with self.level.spritelist_2D.atlas.render_into(self.level.texture_2D) as framebuffer:
+            # Where is the player on the scaled map?
+            scaled_pos = Point(self.pos.x * self.level.scale + x, self.pos.y * self.level.scale + y)
+            arcade.draw_circle_filled(scaled_pos.x, scaled_pos.y, 0.2 * self.level.scale, arcade.color.BLUE)
 
-        # Draw rays
-        self.draw_rays(300, self.fov)
+            # Draw rays
+            self.draw_rays(300, self.fov)
 
-        # Debug info
-        if self.debug:
-            # Direction vector
-            scaled_heading = Point(self.heading_x, self.heading_y) * self.level.scale
-            line_end = scaled_pos + scaled_heading
-            arcade.draw_line(scaled_pos.x, scaled_pos.y, line_end.x, line_end.y, arcade.color.GREEN, 0.1 * self.level.scale)
+            # Debug info
+            if self.debug:
+                # Direction vector
+                scaled_heading = Point(self.heading_x, self.heading_y) * self.level.scale
+                line_end = scaled_pos + scaled_heading
+                arcade.draw_line(scaled_pos.x, scaled_pos.y, line_end.x, line_end.y, arcade.color.GREEN, 0.1 * self.level.scale)
 
-            # Hitbox
-            arcade.draw_circle_outline(scaled_pos.x, scaled_pos.y, self.hit_radius * self.level.scale, arcade.color.RED, 1)
+                # Hitbox
+                arcade.draw_circle_outline(scaled_pos.x, scaled_pos.y, self.hit_radius * self.level.scale, arcade.color.RED, 1)
 
     def draw_3D(self, x: float = 0, y: float = 0):
-        self.sprite.left = x
-        self.sprite.bottom = y
-        rays = self.get_rays(300, self.fov)
-        with self.spritelist.atlas.render_into(self.texture) as framebuffer:
+        self.sprite_3D.left = x
+        self.sprite_3D.bottom = y
+        rays = self.get_rays(600, self.fov)
+        with self.spritelist_3D.atlas.render_into(self.texture_3D) as framebuffer:
             framebuffer.clear()
             # Horizon
             arcade.draw_lrtb_rectangle_filled(0, 600, 600, 0, arcade.color.SKY_BLUE)
-            arcade.draw_lrtb_rectangle_filled(0, 600, 300 - self.look, 0, arcade.color.MOSS_GREEN)
+            arcade.draw_lrtb_rectangle_filled(0, 600, max(0, 300 - self.look), 0, arcade.color.MOSS_GREEN)
             for i, info in enumerate(rays):
                 d = info.distance * math.cos(degrees_to_radians(info.angle))
                 height = arcade.get_window().height / d
@@ -357,5 +372,5 @@ class Player:
                 center_screen = arcade.get_window().height / 2 - self.look
                 bottom = center_screen - (height / 2)
                 top = center_screen + (height / 2)
-                arcade.draw_lrtb_rectangle_filled(i * 2, i * 2 + 2, top, bottom, color)
-        self.spritelist.draw()
+                arcade.draw_lrtb_rectangle_filled(i, i + 1, top, bottom, color)
+        self.spritelist_3D.draw()
